@@ -1,0 +1,151 @@
+import gurobipy as gp
+from gurobipy import GRB
+import networkx as nx
+
+import pandas as pd
+# Reading the file
+df = pd.read_excel('IA_features.xlsx')
+#df2 = pd.read_csv("IA.population.csv")
+#df3 = pd.read_csv("IA.dimacs.csv") #For the nodes
+df4 = pd.read_csv("IA_distances.csv")
+
+#population = open('IA.txt','r')
+population = {
+    '0': 12943,
+    '1': 10330,
+    '2': 12138,
+    '3': 10033,
+    '4': 98537,
+    '5': 10565,
+    '6': 12329,
+    '7': 20070,
+    '8': 492401,
+    '9': 9814,
+    '10': 40105,
+    '11': 17488,
+    '12': 9110,
+    '13': 15627,
+    '14': 5674,
+    '15': 20646,
+    '16': 16878,
+    '17': 26715,
+    '18': 37813,
+    '19': 25698,
+    '20': 93667,
+    '21': 5896,
+    '22': 15211,
+    '23': 11658,
+    '24': 38910,
+    '25': 174669,
+    '26': 33555,
+    '27': 6605,
+    '28': 16662,
+    '29': 14334,
+    '30': 9388,
+    '31': 105941,
+    '32': 16384,
+    '33': 16525,
+    '34': 20565,
+    '35': 6192,
+    '36': 43127,
+    '37': 8771,
+    '38': 35437,
+    '39': 20482,
+    '40': 11934,
+    '41': 3704,
+    '42': 8751,
+    '43': 9597,
+    '44': 10837,
+    '45': 17135,
+    '46': 7577,
+    '47': 43235,
+    '48': 8634,
+    '49': 15039,
+    '50': 10019,
+    '51': 24988,
+    '52': 14182,
+    '53': 10623,
+    '54': 22565,
+    '55': 35872,
+    '56': 14061,
+    '57': 10679,
+    '58': 7005,
+    '59': 13127,
+    '60': 7645,
+    '61': 18505,
+    '62': 20760,
+    '63': 7078,
+    '64': 14828,
+    '65': 14582,
+    '66': 36999,
+    '67': 15663,
+    '68': 16548,
+    '69': 9469,
+    '70': 8996,
+    '71': 4663,
+    '72': 46460,
+    '73': 9927,
+    '74': 7443,
+    '75': 131144,
+    '76': 9748,
+    '77': 19509,
+    '78': 52403,
+    '79': 7496,
+    '80': 12012,
+    '81': 10795,
+    '82': 99266,
+    '83': 18662,
+    '84': 11746,
+    '85': 25575,
+    '86': 6497,
+    '87': 19485,
+    '88': 230299,
+    '89': 17703,
+    '90': 17043,
+    '91': 20823,
+    '92': 14484,
+    '93': 99678,
+    '94': 33414,
+    '95': 22190,
+    '96': 12317,
+    '97': 7203,
+    '98': 152854
+}
+
+
+distances = df4.to_dict()
+
+# Calculate the population deviation
+
+total_population = sum(population.values())
+
+upper_population_bound = (total_population/4)*1.005
+
+lower_population_bound = (total_population/4)*0.995
+
+# Make Gurobi Model
+
+p = gp.Model("Iowa Redistricing Model")
+
+# Add Decision Variable
+
+counties = [key for key in population]
+
+districts = [key for key in range(4)]
+
+x = p.addVars(counties,counties, vtype=GRB.BINARY, name="x") 
+
+# Set Objective Function
+
+p.setObjective(gp.quicksum(gp.quicksum(population[i]*(distances[i,j])**2*x[i,j] for i in counties for j in counties)), GRB.MINIMIZE)
+
+
+# Add Constraints
+p.addConstrs((gp.quicksum(x[j,j] for j in counties) == 4))
+p.addConstrs((gp.quicksum(x[i,j] for j in counties) == 1 for i in counties), name = 'Assignment Constraint')
+#p.addConstrs((x[i,j] for i in counties for j in districts) <= (x[j,j] for j in districts))
+p.addConstrs((gp.quicksum(population[i]*x[i,j] for i in counties for j in counties)<=upper_population_bound))
+p.addConstrs((gp.quicksum(population[i]*x[i,j] for i in counties for j in counties)>=lower_population_bound))
+
+# Optimize 
+p.optimize()
